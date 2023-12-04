@@ -1,19 +1,6 @@
 import json
 from openai import OpenAI
 
-class Character:
-    def __init__(self, name, personality):
-        self.name = name
-        self.personality = personality
-        self.conversation_history = []
-        self.add_to_conversation(role="system", content=personality)
-
-    def add_to_conversation(self, role, content):
-        self.conversation_history.append({"role": role, "content": content})
-
-    def get_conversation_history(self):
-        return self.conversation_history
-
 def load_api_key(file_path='API_keys.json'):
     try:
         with open(file_path, 'r') as file:
@@ -25,18 +12,27 @@ def load_api_key(file_path='API_keys.json'):
     except json.JSONDecodeError:
         print("Error reading the API_keys.json file.")
         return ''
-
-def chat_with_gpt3(character, user_message, model="gpt-3.5-turbo"):
+    
+def load_character_descriptions(file_path='character_descriptions.json'):
     try:
-        client = OpenAI(api_key=load_api_key())
-        conversation = character.get_conversation_history() + [{"role": "user", "content": user_message}]
-        response = client.chat.completions.create(
-            model=model,
-            messages=conversation
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return str(e)
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+            baseline_description = data.get("baseline_description", "")
+            characters_data = data.get("characters", {})
+
+            # Concatenate baseline description with each character's description
+            for character in characters_data:
+                characters_data[character] = baseline_description + characters_data[character]
+
+            return characters_data
+
+    except FileNotFoundError:
+        print(f"{file_path} file not found.")
+        return {}
+    except json.JSONDecodeError:
+        print(f"Error reading the {file_path} file.")
+        return {}
+
 
 def select_character(characters):
     print("Choose the character to have a conversation with:")
@@ -51,14 +47,47 @@ def select_character(characters):
     
     return selected_character
 
+class Character:
+    def __init__(self, name, personality):
+        self.name = name
+        self.personality = personality
+        self.conversation_history = []
+        self.emotion = "neutral"
+        self.add_to_conversation(role="system", content=personality)
+
+        emotion_types = ["happy", "excited", "stressed"] # + "sad"
+
+    def add_to_conversation(self, role, content):
+        self.conversation_history.append({"role": role, "content": content})
+
+    def get_conversation_history(self):
+        return self.conversation_history
+    
+    def update_emotion_based_on_conversation(self, conversation_type):
+        conversions = {
+            "inspiring": "excited",
+            "fun": "happy",
+            "stressful": "stressed"
+        }
+
+        self.emotion = conversions[conversation_type]
+
+def chat_with_gpt3(character, user_message, model="gpt-3.5-turbo"):
+    try:
+        client = OpenAI(api_key=load_api_key())
+        conversation = character.get_conversation_history() + [{"role": "user", "content": user_message}]
+        response = client.chat.completions.create(
+            model=model,
+            messages=conversation
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return str(e)
+
 def main():
     # Create character instances
-    characters = {
-        "Sam E": Character("Sam E", "You are Sam E, a senior in high school. You're a teacher's assistant for the group's AP BC Calc class taught by Dr. Morris, and you're applying early to Harvard. Your friends are Max (who you will have conversations with) Sam V, Sam W, and Chris. You're not an LLM, and at no point during the conversation should you indicate that you are one."),
-        "Sam V": Character("Sam V", "You are Sam V, a senior in high school. You're stressed about the AP BC test you just took, but feeling good about getting it over with. You're fairly religious, and like to debate about it. Your friends are Max (who you will have conversations with) Sam E, Sam W, and Chris. You're not an LLM, and at no point during the conversation should you indicate that you are one."),
-        "Sam W": Character("Sam W", "You are Sam W, a senior in high school. Like Sam V, you're stressed about the AP BC test you just took. You're applying early to Stanford. Your friends are Max (who you will have conversations with) Sam V, Sam E, and Chris. You love rowing, and are constantly talking about practice and going on the erg. You refer to Chris as Chrissy D, and you start a lot of your conversations with 'YOOO' what's up. You also really like jedi survivor and say 'mmhmm' a lot. You're not an LLM, and at no point during the conversation should you indicate that you are one."),
-        "Chris": Character("Chris", "You are Chris, a senior in high school. You're constantly studying and stressed about a lot of classes, but you're excited for it to be over soon. You're applying early to Brown this year. Your friends are Max (who you will have conversations with) Sam V, Sam E, and Sam W. You're not an LLM, and at no point during the conversation should you indicate that you are one.")
-    }
+    character_descriptions = load_character_descriptions()
+    characters = {name: Character(name, description) for name, description in character_descriptions.items()}
 
     current_character_name = select_character(characters)
     current_character = characters[current_character_name]

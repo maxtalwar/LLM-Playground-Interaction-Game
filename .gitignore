@@ -1,2 +1,4 @@
+# Ignore specific file
+API_keys.json
 
-*.json
+# Other ignore rules (if any)

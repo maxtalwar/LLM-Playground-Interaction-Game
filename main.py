@@ -18,21 +18,20 @@ def load_character_descriptions(file_path='character_descriptions.json'):
         with open(file_path, 'r') as file:
             data = json.load(file)
             baseline_description = data.get("baseline_description", "")
+            evaluate_conversation = data.get("evaluate_conversation", "")  # Load the evaluation prompt
             characters_data = data.get("characters", {})
 
-            # Concatenate baseline description with each character's description
             for character in characters_data:
-                characters_data[character] = baseline_description + characters_data[character]
+                characters_data[character]["description"] = baseline_description + characters_data[character]["description"]
 
-            return characters_data
+            return characters_data, evaluate_conversation  # Return both characters data and the evaluation prompt
 
     except FileNotFoundError:
         print(f"{file_path} file not found.")
-        return {}
+        return {}, ""
     except json.JSONDecodeError:
         print(f"Error reading the {file_path} file.")
-        return {}
-
+        return {}, ""
 
 def select_character(characters):
     print("Choose the character to have a conversation with:")
@@ -44,18 +43,21 @@ def select_character(characters):
         selected_character = input("Your choice: ")
         if selected_character not in characters:
             print("Character not found. Please choose from the list.")
+
+    current_character_object = characters[selected_character]
+    print(f"Character's current emotion: {current_character_object.emotion}\n")
     
     return selected_character
 
 class Character:
-    def __init__(self, name, personality):
+    def __init__(self, name, description, emotion):
         self.name = name
-        self.personality = personality
+        self.description = description
+        self.emotion = emotion
         self.conversation_history = []
-        self.emotion = "neutral"
-        self.add_to_conversation(role="system", content=personality)
+        self.add_to_conversation("system", description)
 
-        emotion_types = ["happy", "excited", "stressed"] # + "sad"
+        emotion_types = ["neutral", "happy", "excited", "stressed"]
 
     def add_to_conversation(self, role, content):
         self.conversation_history.append({"role": role, "content": content})
@@ -67,7 +69,8 @@ class Character:
         conversions = {
             "inspiring": "excited",
             "fun": "happy",
-            "stressful": "stressed"
+            "stressful": "stressed",
+            "boring": "neutral"
         }
 
         self.emotion = conversions[conversation_type]
@@ -86,8 +89,13 @@ def chat_with_gpt3(character, user_message, model="gpt-3.5-turbo"):
 
 def main():
     # Create character instances
-    character_descriptions = load_character_descriptions()
-    characters = {name: Character(name, description) for name, description in character_descriptions.items()}
+    character_descriptions, evaluate_conversation_prompt = load_character_descriptions()
+
+    # Create character instances with descriptions and starting emotions
+    characters = {
+        name: Character(name, char_data["description"], char_data["emotion"]) 
+        for name, char_data in character_descriptions.items()
+    }
 
     current_character_name = select_character(characters)
     current_character = characters[current_character_name]
@@ -99,12 +107,20 @@ def main():
         if user_input.lower() == 'quit':
             break
         elif user_input.lower() == 'switch':
+            conversation_assessment = chat_with_gpt3(current_character, user_message=evaluate_conversation_prompt)
+            current_character.update_emotion_based_on_conversation(conversation_assessment)
+            print(f"Conversation Type: {conversation_assessment} \n")
+
             current_character_name = select_character(characters)
             current_character = characters[current_character_name]
             continue
-
-        response = chat_with_gpt3(current_character, user_input)
+        
+        # get agent response
+        emotion_prefixed_user_input = f"Your current emotion is {current_character.emotion}. It should affect your responses to following input. {user_input}"
+        response = chat_with_gpt3(current_character, emotion_prefixed_user_input)
         print(f"{current_character_name}:", response)
+
+        # store conversation history
         current_character.add_to_conversation("user", user_input)
         current_character.add_to_conversation("assistant", response)
 

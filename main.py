@@ -57,7 +57,7 @@ class Character:
         self.conversation_history = []
         self.add_to_conversation("system", description)
 
-        emotion_types = ["neutral", "happy", "excited", "stressed"]
+        # emotion_types = ["neutral", "happy", "excited", "stressed"]
 
     def add_to_conversation(self, role, content):
         self.conversation_history.append({"role": role, "content": content})
@@ -75,7 +75,7 @@ class Character:
 
         self.emotion = conversions[conversation_type]
 
-def chat_with_gpt3(character, user_message, model="gpt-3.5-turbo"):
+def chat_with_gpt3(character, user_message, model="gpt-4-1106-preview"):
     try:
         client = OpenAI(api_key=load_api_key())
         conversation = character.get_conversation_history() + [{"role": "user", "content": user_message}]

@@ -49,6 +49,64 @@ def select_character(characters):
     
     return selected_character
 
+class FSM:
+    def __init__(self, initial_state):
+        # Dictionary (input_symbol, current_state) --> (action, next_state).
+        self.state_transitions = {}
+        self.current_state = initial_state
+
+    def add_transition(self, input_symbol, state, action=None, next_state=None):
+        """
+        Adds a transition to the instance variable state_transitions
+        that associates:
+            (input_symbol, current_state) --> (action, next_state)
+
+        The action may be set to None in which case the process() method will
+        ignore the action and only set the next_state.
+
+        The next_state may be set to None in which case the current state will be unchanged.
+        
+        Args:
+            input_symbol (anything): The input received
+            state (anything): The current state
+            action (function, optional): The action to take/function to run. Defaults to None.
+            next_state (anything, optional): The next state to transition to. Defaults to None.
+        """
+        self.state_transitions[(input_symbol, state)] = (action, next_state)
+
+    def get_transition(self, input_symbol, state):
+        """
+        Returns tuple (action, next state) given an input_symbol and state.
+        Normally you do not call this method directly. It is called by
+        process().
+
+        Args:
+            input_symbol (anything): The given input symbol
+            state (anything): The current state
+
+        Returns:
+            tuple: Returns the tuple (action, next_state)
+        """
+        return self.state_transitions[(input_symbol, state)]
+
+    def process(self, input_symbol):
+        """
+        The main method that you call to process input. This may
+        cause the FSM to change state and call an action. This method calls
+        get_transition() to find the action and next_state associated with the
+        input_symbol and current_state. If the action is None then the action
+        is not called and only the current state is changed. This method
+        processes one complete input symbol.
+        Args:
+            input_symbol (anything): The input to process
+        """
+        transition = self.get_transition(input_symbol, self.current_state)
+        action = transition[0]
+        next_state = transition[1]
+
+        if action: action()
+        if next_state: self.current_state = next_state
+
 class Character:
     def __init__(self, name, description, emotion):
         self.name = name
@@ -56,6 +114,9 @@ class Character:
         self.emotion = emotion
         self.conversation_history = []
         self.add_to_conversation("system", description)
+
+        self.fsm = FSM(emotion)
+        self.setup_fsm_transitions()
 
         # emotion_types = ["neutral", "happy", "excited", "stressed"]
 
@@ -66,14 +127,14 @@ class Character:
         return self.conversation_history
     
     def update_emotion_based_on_conversation(self, conversation_type):
-        conversions = {
-            "inspiring": "excited",
-            "fun": "happy",
-            "stressful": "stressed",
-            "boring": "neutral"
-        }
+        self.fsm.process(conversation_type)
+        self.emotion = self.fsm.current_state
 
-        self.emotion = conversions[conversation_type]
+    def setup_fsm_transitions(self):
+        # Example transitions (add more as needed)
+        self.fsm.add_transition("inspiring", "stressed", next_state="excited")
+        self.fsm.add_transition("fun", "neutral", next_state="happy")
+        self.fsm.add_transition("stressful", "happy", next_state="stressed")
 
 def chat_with_gpt3(character, user_message, model="gpt-4-1106-preview"):
     try:

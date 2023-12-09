@@ -132,9 +132,16 @@ class Character:
 
     def setup_fsm_transitions(self):
         # Example transitions (add more as needed)
-        self.fsm.add_transition("inspiring", "stressed", next_state="excited")
+        # states: happy, stressed, neutral
+        # transitions: fun, stressful, boring
         self.fsm.add_transition("fun", "neutral", next_state="happy")
+        self.fsm.add_transition("fun", "stressed", next_state="happy")
+
+        self.fsm.add_transition("boring", "happy", next_state="neutral")
+        self.fsm.add_transition("boring", "stressed", next_state="neutral")
+
         self.fsm.add_transition("stressful", "happy", next_state="stressed")
+        self.fsm.add_transition("stressful", "neutral", next_state="stressed")
 
 def chat_with_gpt3(character, user_message, model="gpt-4-1106-preview"):
     try:

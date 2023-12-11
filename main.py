@@ -134,6 +134,7 @@ class Character:
         # Example transitions (add more as needed)
         # states: happy, stressed, neutral
         # transitions: fun, stressful, boring
+        # the FSM for this would be triangular -- each of the three emotions can map to any other emotion
         self.fsm.add_transition("fun", "neutral", next_state="happy")
         self.fsm.add_transition("fun", "stressed", next_state="happy")
 
